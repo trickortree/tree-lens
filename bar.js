@@ -38,6 +38,7 @@ function fit() {
     let h = $("top").offsetHeight + $("composer").offsetHeight + 14;
     if (chatBox.style.display === "block") h += Math.min(chatIn.offsetHeight + 14, 470);
     if ($("sugg").style.display === "block") h += $("sugg").offsetHeight;
+    if ($("update").classList.contains("show")) h += $("update").offsetHeight + 6;
     if ($("menu").style.display === "block") h = Math.max(h, $("menu").offsetTop + $("menu").offsetHeight + 20);
     if (sidebarOpen) h = Math.max(h, 380);
     window.bar.resize(sidebarOpen ? WIDE : NARROW, h + 20);
@@ -551,6 +552,7 @@ function setSidebar(open) {
     fit();
 }
 
+$("update-btn").onclick = () => window.bar.restartForUpdate();
 $("close-btn").onclick = () => window.bar.hide();
 $("new-btn").onclick = newChatUi;
 $("menu-btn").onclick = () => toggleMenu($("menu").style.display !== "block");
@@ -568,6 +570,8 @@ window.addEventListener("click", e => {
 
 function applySettings(s) {
     settings = s;
+    $("update").classList.toggle("show", !!s.updateReady);
+    $("update-text").textContent = s.updateReady ? `Tree Lens ${s.updateReady} is ready to install.` : "";
     if (!recording) $("keys").textContent = s.hotkey.split("+").join(" + ");
     $("pin-btn").classList.toggle("on", s.keepOnTop);
     $("pin-btn").title = s.keepOnTop ? "Kept on top (click to unpin)" : "Keep on top";

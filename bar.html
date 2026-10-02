@@ -53,6 +53,8 @@
   #menu .sub { padding-left: 30px; font-size: 13.5px; color: var(--muted); }
   #menu .sub.sel { color: var(--text); font-weight: 600; }
 
+  #update.show { display: flex !important; }
+
   /* chat */
   #chat { display: none; flex: 1 1 auto; min-height: 0; padding: 4px 20px 8px; overflow-y: auto; -webkit-user-select: text; user-select: text; }
   #chat-in { display: flow-root; }
@@ -145,6 +147,11 @@
         <button class="ib" id="close-btn" title="Close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
+      </div>
+
+      <div id="update" style="display:none;margin:0 14px 6px;padding:8px 14px;border-radius:14px;background:var(--chip);color:var(--accent);align-items:center;justify-content:space-between;gap:10px">
+        <span id="update-text"></span>
+        <button class="btn primary" id="update-btn">Restart now</button>
       </div>
 
       <div id="chat"></div>

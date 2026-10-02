@@ -32,6 +32,7 @@ let history = [];       // chat messages the model has seen so far (without web 
 let appIndex = [];
 let appIndexAt = 0;
 let settings = { keepOnTop: false, taskbar: false, hotkey: null, model: ai.DEFAULT_MODEL };
+let updateVersion = null;     // set once a new version has been downloaded
 let job = { running: false };   // Ollama / model setup in progress (lives here so the UI can reconnect to it)
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -54,7 +55,8 @@ function currentSettings() {
         hotkey: HOTKEY,
         model: settings.model,
         models: ai.MODELS,
-        version: app.getVersion()
+        version: app.getVersion(),
+        updateReady: updateVersion
     };
 }
 
@@ -493,6 +495,7 @@ function createTray() {
         { label: "Show in taskbar", type: "checkbox", checked: !!settings.taskbar, click: i => setSetting("taskbar", i.checked) },
         { label: "Start with Windows", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: i => setSetting("startWithWindows", i.checked) },
         { type: "separator" },
+        ...(updateVersion ? [{ label: `Restart to update to v${updateVersion}`, click: () => { app.isQuitting = true; autoUpdater.quitAndInstall(); } }] : []),
         { label: `Tree Lens v${app.getVersion()}`, enabled: false },
         { label: "Quit", click: () => app.quit() }
     ]);
@@ -505,6 +508,12 @@ function setupAutoUpdater() {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true; // installs the next time Tree Lens quits
     autoUpdater.on("error", err => console.error("AUTO-UPDATER ERROR:", err));
+    autoUpdater.on("update-downloaded", info => {
+        updateVersion = info.version;
+        send("settings:changed", currentSettings());
+        if (tray) tray.displayBalloon && tray.displayBalloon({ title: "Tree Lens update ready", content: `Version ${info.version} is ready. Open Tree Lens and choose Restart now.` });
+    });
+    ipcMain.on("update:restart", () => { app.isQuitting = true; autoUpdater.quitAndInstall(); });
     autoUpdater.checkForUpdates().catch(err => console.error(err));
     setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 }

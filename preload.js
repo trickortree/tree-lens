@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("bar", {
     resize: send("bar:resize"),
     hide: send("bar:hide"),
     quit: send("bar:quit"),
+    restartForUpdate: send("update:restart"),
     copy: send("clipboard:write"),
     onShown: cb => on("bar:shown", cb),
     getSettings: invoke("settings:get"),
