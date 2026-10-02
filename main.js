@@ -9,6 +9,9 @@ const feedback = require("./feedback");
 
 app.setAppUserModelId("com.trickortree.treelens");
 
+// A stray error should be logged, not shown as a crash dialog.
+process.on("uncaughtException", err => console.error("UNCAUGHT:", err));
+
 if (!app.requestSingleInstanceLock()) {
     app.quit();
 }
@@ -75,8 +78,10 @@ ipcMain.on("settings:set", (_e, key, value) => {
     else if (key === "model" && ai.MODELS.some(m => m.id === value)) setSetting("model", value);
 });
 
+const barAlive = () => bar && !bar.isDestroyed();
+
 function send(channel, data) {
-    if (bar && !bar.isDestroyed()) bar.webContents.send(channel, data);
+    if (barAlive()) bar.webContents.send(channel, data);
 }
 
 /* ---------- Search bar window ---------- */
@@ -103,6 +108,7 @@ function createBar() {
         }
     });
     bar.loadFile("bar.html");
+    bar.webContents.on("render-process-gone", () => { if (barAlive()) bar.reload(); });
     bar.on("blur", () => { if (!holdBar && !asking && !settings.keepOnTop) hideBar(); });
     bar.on("close", e => {
         // The X in the corner hides the bar; Quit lives in the tray and the menu.
@@ -115,10 +121,11 @@ function applyTaskbar() {
     bar.setSkipTaskbar(!settings.taskbar);
 }
 function hideBar() {
+    if (!barAlive()) return;
     if (settings.taskbar) bar.minimize();
     else bar.hide();
 }
-const barShown = () => bar.isVisible() && !bar.isMinimized();
+const barShown = () => barAlive() && bar.isVisible() && !bar.isMinimized();
 
 function placeBar() {
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -128,6 +135,11 @@ function placeBar() {
 }
 
 function showBar(fresh = true) {
+    if (!barAlive()) {
+        createBar();
+        bar.once("ready-to-show", () => showBar(fresh));
+        return;
+    }
     const wasShown = barShown();
     if (bar.isMinimized()) bar.restore();
     if (!wasShown) placeBar();
@@ -553,7 +565,7 @@ function setupAutoUpdater() {
     setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 }
 
-app.on("second-instance", () => { if (bar) showBar(); });
+app.on("second-instance", () => showBar());
 app.on("before-quit", () => { app.isQuitting = true; });
 
 app.whenReady().then(() => {
@@ -564,6 +576,7 @@ app.whenReady().then(() => {
     createTray();
     registerHotkey(settings.hotkey);
     setupAutoUpdater();
+    ai.quietOllama();
     refreshAppIndex();
     // First screen capture is slow; do a throwaway one now so the first real Lens is quick.
     desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: 1, height: 1 } }).catch(() => {});

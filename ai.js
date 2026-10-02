@@ -60,6 +60,7 @@ function startServer() {
 // Ollama's first start can take a minute on some PCs, so an installed Ollama is given time instead of
 // being treated as missing.
 async function status(model, onWait) {
+    await quietOllama();
     let started = false;
     const installed = fs.existsSync(ollamaExe());
     for (let i = 0; i < (installed ? 120 : 3); i++) {
@@ -93,7 +94,18 @@ async function warm(model) {
 }
 
 function run(file, args) {
-    return new Promise(resolve => execFile(file, args, { windowsHide: true }, () => resolve()));
+    return new Promise(resolve => execFile(file, args, { windowsHide: true }, (err, out) => resolve(err ? "" : String(out))));
+}
+
+// Ollama's own desktop app (the window with "Apps", a tray icon and a login-time autostart) is not
+// needed: Tree Lens only uses the quiet background server. Close the window if it is open and stop
+// it from starting at login. The server it hosted keeps running.
+async function quietOllama() {
+    const list = await run("tasklist", ["/FI", "IMAGENAME eq ollama app.exe", "/NH"]);
+    if (/ollama app\.exe/i.test(list)) await run("taskkill", ["/F", "/IM", "ollama app.exe"]);
+    await run("reg", ["delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "Ollama", "/f"]);
+    const startup = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "Ollama.lnk");
+    try { fs.rmSync(startup, { force: true }); } catch { /* not there */ }
 }
 
 // Downloads the official Ollama installer and runs it silently (per-user install, no prompts).
@@ -122,8 +134,7 @@ async function installOllama(onProgress) {
     fs.rmSync(dest, { force: true });
 
     // The installer starts Ollama's own window and sets it to launch at login; we only want the quiet server.
-    await run("taskkill", ["/F", "/IM", "ollama app.exe"]);
-    await run("reg", ["delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "Ollama", "/f"]);
+    await quietOllama();
     onProgress({ text: "Starting Ollama", percent: null });
     for (let i = 0; i < 20; i++) {
         try { await listModels(); return; } catch { if (i === 0) startServer(); await sleep(1000); }
@@ -225,4 +236,4 @@ function shouldSearch(text) {
     return true;
 }
 
-module.exports = { MODELS, DEFAULT_MODEL, throttle, status, warm, installOllama, pullModel, chat, webSearch, shouldSearch };
+module.exports = { quietOllama, MODELS, DEFAULT_MODEL, throttle, status, warm, installOllama, pullModel, chat, webSearch, shouldSearch };
