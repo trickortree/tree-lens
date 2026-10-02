@@ -1,6 +1,6 @@
 {
   "name": "tree-lens",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Tree Lens",
   "main": "main.js",
   "scripts": {
@@ -24,6 +24,7 @@
     "files": [
       "main.js",
       "ai.js",
+      "feedback.js",
       "preload.js",
       "bar.html",
       "bar.js",

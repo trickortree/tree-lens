@@ -495,12 +495,17 @@ function createTray() {
         { label: "Show in taskbar", type: "checkbox", checked: !!settings.taskbar, click: i => setSetting("taskbar", i.checked) },
         { label: "Start with Windows", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: i => setSetting("startWithWindows", i.checked) },
         { type: "separator" },
-        ...(updateVersion ? [{ label: `Restart to update to v${updateVersion}`, click: () => { app.isQuitting = true; autoUpdater.quitAndInstall(); } }] : []),
+        ...(updateVersion ? [{ label: `Restart to update to v${updateVersion}`, click: installUpdate }] : []),
         { label: `Tree Lens v${app.getVersion()}`, enabled: false },
         { label: "Quit", click: () => app.quit() }
     ]);
     tray.on("click", () => showBar());
     tray.on("right-click", () => tray.popUpContextMenu(menu()));
+}
+
+function installUpdate() {
+    app.isQuitting = true;
+    autoUpdater.quitAndInstall(true, true); // silent (no installer wizard) and relaunch
 }
 
 function setupAutoUpdater() {
@@ -511,9 +516,11 @@ function setupAutoUpdater() {
     autoUpdater.on("update-downloaded", info => {
         updateVersion = info.version;
         send("settings:changed", currentSettings());
-        if (tray) tray.displayBalloon && tray.displayBalloon({ title: "Tree Lens update ready", content: `Version ${info.version} is ready. Open Tree Lens and choose Restart now.` });
+        // Nobody is using the bar: update right away, silently, and come back in the tray.
+        // If it is open, the "Restart now" strip lets the user choose when.
+        if (!barShown()) setTimeout(installUpdate, 3000);
     });
-    ipcMain.on("update:restart", () => { app.isQuitting = true; autoUpdater.quitAndInstall(); });
+    ipcMain.on("update:restart", installUpdate);
     autoUpdater.checkForUpdates().catch(err => console.error(err));
     setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 }
@@ -532,7 +539,7 @@ app.whenReady().then(() => {
     refreshAppIndex();
     // First screen capture is slow; do a throwaway one now so the first real Lens is quick.
     desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: 1, height: 1 } }).catch(() => {});
-    if (!app.getLoginItemSettings().wasOpenedAtLogin) bar.once("ready-to-show", () => showBar());
+    if (!app.getLoginItemSettings().wasOpenedAtLogin && !process.argv.includes("--updated")) bar.once("ready-to-show", () => showBar());
 });
 
 app.on("will-quit", () => globalShortcut.unregisterAll());
