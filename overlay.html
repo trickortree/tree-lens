@@ -24,7 +24,13 @@
   const sel = document.getElementById("sel");
   let start = null, rect = null;
 
-  window.overlay.onImage(url => { shot.src = url; });
+  window.overlay.onImage(url => {
+    // The window is reused, so start every selection from a clean state.
+    start = null; rect = null;
+    sel.style.display = "none";
+    dim.style.display = "block";
+    shot.src = url;
+  });
 
   function boxFrom(a, b) {
     return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
@@ -42,7 +48,9 @@
   });
   window.addEventListener("mouseup", () => {
     if (!start) return;
-    window.overlay.done(rect && rect.w > 8 && rect.h > 8 ? rect : null);
+    const picked = rect && rect.w > 8 && rect.h > 8 ? rect : null;
+    start = null;
+    window.overlay.done(picked);
   });
   window.addEventListener("keydown", e => { if (e.key === "Escape") window.overlay.done(null); });
 </script>
