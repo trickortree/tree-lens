@@ -40,8 +40,9 @@ const ollamaExe = () => path.join(process.env.LOCALAPPDATA || "", "Programs", "O
 function startServer() {
     const exe = ollamaExe();
     if (!fs.existsSync(exe)) return false;
+    // Not "detached": a console-less server makes Windows open a visible command window for every
+    // model run it starts. With a hidden console of its own, its helpers inherit it and stay invisible.
     spawn(exe, ["serve"], {
-        detached: true,
         stdio: "ignore",
         windowsHide: true,
         env: {
@@ -55,10 +56,13 @@ function startServer() {
     return true;
 }
 
-// "ready" | "no-model" | "no-ollama"
-async function status(model) {
+// "ready" | "no-model" | "no-ollama" (not installed) | "slow" (installed, but still starting up).
+// Ollama's first start can take a minute on some PCs, so an installed Ollama is given time instead of
+// being treated as missing.
+async function status(model, onWait) {
     let started = false;
-    for (let i = 0; i < 20; i++) {
+    const installed = fs.existsSync(ollamaExe());
+    for (let i = 0; i < (installed ? 120 : 3); i++) {
         try {
             const models = await listModels();
             return models.some(m => m === model || m.startsWith(`${model}-`) || (!model.includes(":") && m === `${model}:latest`))
@@ -68,10 +72,11 @@ async function status(model) {
                 started = startServer();
                 if (!started) return "no-ollama";
             }
+            if (onWait && i === 2) onWait("Starting Ollama (the first start can take a minute)...");
             await sleep(1000);
         }
     }
-    return "no-ollama";
+    return installed ? "slow" : "no-ollama";
 }
 
 // Loads the model into memory ahead of the first question (only if the server is already up).

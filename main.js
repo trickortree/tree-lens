@@ -103,7 +103,7 @@ function createBar() {
         }
     });
     bar.loadFile("bar.html");
-    bar.on("blur", () => { if (!holdBar && !settings.keepOnTop) hideBar(); });
+    bar.on("blur", () => { if (!holdBar && !asking && !settings.keepOnTop) hideBar(); });
     bar.on("close", e => {
         // The X in the corner hides the bar; Quit lives in the tray and the menu.
         if (!app.isQuitting) { e.preventDefault(); hideBar(); }
@@ -442,7 +442,8 @@ function systemPrompt() {
 ipcMain.handle("ai:ask", async (_e, { text, images, web, canned }) => {
     if (asking) return { ok: false, error: "Still answering the last question." };
     const model = settings.model;
-    const state = await ai.status(model);
+    const state = await ai.status(model, text => send("ai:note", text));
+    if (state === "slow") return { ok: false, error: "Ollama is still starting up. Give it a minute and ask again." };
     if (state !== "ready") return { ok: false, setup: state };
 
     const controller = new AbortController();
