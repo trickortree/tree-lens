@@ -1,0 +1,61 @@
+{
+  "name": "tree-lens",
+  "version": "0.1.0",
+  "description": "Tree Lens",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "release": "node scripts/release.js"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.7.0",
+    "electron-updater": "^6.8.9"
+  },
+  "build": {
+    "appId": "com.trickortree.treelens",
+    "productName": "Tree Lens",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "bar.html",
+      "bar.js",
+      "overlay.html",
+      "overlay-preload.js",
+      "lens-worker.js",
+      "package.json",
+      "build/**/*",
+      "!node_modules/onnxruntime-node/bin/napi-v3/{darwin,linux}/**",
+      "!node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**",
+      "!node_modules/onnxruntime-web/**"
+    ],
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**",
+      "node_modules/sharp/**",
+      "node_modules/@img/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "trickortree",
+      "repo": "tree-lens",
+      "releaseType": "release"
+    }
+  }
+}
