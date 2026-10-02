@@ -115,6 +115,7 @@ function createBar() {
             sandbox: true
         }
     });
+    bar.setMenu(null);
     bar.loadFile("bar.html");
     bar.webContents.on("render-process-gone", (_e, details) => {
         log(`bar page process gone: ${details.reason}`);
@@ -189,7 +190,7 @@ ipcMain.on("clipboard:write", (_e, text) => clipboard.writeText(String(text)));
 
 /* ---------- Hotkey ---------- */
 
-const KEY_OK = /^([A-Z0-9]|F([1-9]|1\d|2[0-4])|Space|Up|Down|Left|Right|Return|Tab)$/;
+const KEY_OK = /^([A-Z0-9]|F([1-9]|1\d|2[0-4])|Space|Up|Down|Left|Right|Return|Tab|Backspace|Delete|Insert|Home|End|PageUp|PageDown|[-=,.\/;'\[\]\\`])$/;
 const BLOCKED = ["Ctrl+Alt+Delete", "Ctrl+Shift+Escape", "Alt+F4", "Ctrl+F4"];
 
 // A global hotkey steals that combination from every app, so it must not collide with ordinary
@@ -214,8 +215,23 @@ function registerHotkey(preferred) {
 }
 
 // While recording a new hotkey the current one must not fire.
-ipcMain.on("hotkey:record", (_e, on) => { if (on) globalShortcut.unregisterAll(); else registerHotkey(settings.hotkey); });
+// While recording, the bar must stay open and focused even if pressing Alt makes Windows shuffle focus.
+let recordingHotkey = false;
+function setRecording(on) {
+    if (on && !recordingHotkey) { recordingHotkey = true; holdBar++; }
+    if (!on && recordingHotkey) { recordingHotkey = false; holdBar--; }
+}
+ipcMain.on("hotkey:record", (_e, on) => {
+    setRecording(on);
+    if (on) {
+        globalShortcut.unregisterAll();
+        if (barAlive()) { bar.focus(); bar.webContents.focus(); }
+    } else {
+        registerHotkey(settings.hotkey);
+    }
+});
 ipcMain.handle("hotkey:set", (_e, accelerator) => {
+    setRecording(false);
     if (!validHotkey(accelerator)) {
         registerHotkey(settings.hotkey);
         return { ok: false, error: "Use two of Ctrl/Alt/Shift plus a key, or Alt plus a key." };
@@ -594,6 +610,7 @@ app.on("second-instance", () => showBar());
 app.on("before-quit", () => { app.isQuitting = true; });
 
 app.whenReady().then(() => {
+    Menu.setApplicationMenu(null);
     settings = { ...settings, ...readJson("settings.json", {}) };
     if (!ai.MODELS.some(m => m.id === settings.model)) settings.model = ai.DEFAULT_MODEL;
     createBar();

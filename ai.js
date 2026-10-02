@@ -9,9 +9,8 @@ const OLLAMA = process.env.OLLAMA_HOST_URL || "http://127.0.0.1:11434";
 
 // The first entry is the default. Most laptops this runs on have 8 GB of RAM, so the options are small.
 const MODELS = [
-    { id: "gemma3:4b", label: "Balanced: gemma3:4b (3.3 GB, best answers)" },
-    { id: "qwen2.5vl:3b", label: "Faster with images: qwen2.5vl:3b (3.2 GB, reads screenshots quickly)" },
-    { id: "moondream", label: "Fast: moondream (1.7 GB, simpler answers)" }
+    { id: "gemma3:4b", label: "Balanced: gemma3:4b (3.3 GB, best answers, ~50 s per image)" },
+    { id: "moondream", label: "Fast: moondream (1.7 GB, ~3x quicker on images, simpler answers)" }
 ];
 const DEFAULT_MODEL = MODELS[0].id;
 

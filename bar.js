@@ -606,7 +606,12 @@ window.bar.getSettings().then(applySettings);
 window.bar.onSettings(applySettings);
 
 /* ---------- custom hotkey ---------- */
-const KEY_NAMES = { Space: "Space", Enter: "Return", Tab: "Tab", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right" };
+const KEY_NAMES = {
+    Space: "Space", Enter: "Return", Tab: "Tab", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right",
+    Backspace: "Backspace", Delete: "Delete", Insert: "Insert", Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown",
+    Period: ".", Comma: ",", Slash: "/", Semicolon: ";", Quote: "'", BracketLeft: "[", BracketRight: "]",
+    Backslash: "\\", Minus: "-", Equal: "=", Backquote: "`"
+};
 
 function startHotkeyRecording() {
     recording = true;
@@ -646,6 +651,8 @@ window.addEventListener("keydown", async e => {
     }
     stopRecording();
 }, true);
+
+window.addEventListener("keyup", e => { if (recording && e.key === "Alt") e.preventDefault(); }, true);
 
 window.bar.onShown(() => {
     q.value = "";
