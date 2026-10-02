@@ -33,15 +33,26 @@ function newChat() {
 }
 
 /* ---------- window size ---------- */
+let fitQueued = false, lastH = 0, lastW = 0;
 function fit() {
-    // The window is sized to its content (chat capped), and the chat scrolls inside the rounded box.
-    let h = $("top").offsetHeight + $("composer").offsetHeight + 14;
-    if (chatBox.style.display === "block") h += Math.min(chatIn.offsetHeight + 14, 470);
-    if ($("sugg").style.display === "block") h += $("sugg").offsetHeight;
-    if ($("update").classList.contains("show")) h += $("update").offsetHeight + 6;
-    if ($("menu").style.display === "block") h = Math.max(h, $("menu").offsetTop + $("menu").offsetHeight + 20);
-    if (sidebarOpen) h = Math.max(h, 380);
-    window.bar.resize(sidebarOpen ? WIDE : NARROW, h + 20);
+    // Window resizes are costly, so ask at most once per frame and ignore tiny changes.
+    if (fitQueued) return;
+    fitQueued = true;
+    requestAnimationFrame(() => {
+        fitQueued = false;
+        // The window is sized to its content (chat capped), and the chat scrolls inside the rounded box.
+        let h = $("top").offsetHeight + $("composer").offsetHeight + 14;
+        if ($("update").classList.contains("show")) h += $("update").offsetHeight + 6;
+        if (chatBox.style.display === "block") h += Math.min(chatIn.offsetHeight + 14, 470);
+        if ($("sugg").style.display === "block") h += $("sugg").offsetHeight;
+        if ($("menu").style.display === "block") h = Math.max(h, $("menu").offsetTop + $("menu").offsetHeight + 20);
+        if (sidebarOpen) h = Math.max(h, 380);
+        const w = sidebarOpen ? WIDE : NARROW;
+        if (Math.abs(h - lastH) < 3 && w === lastW) return;
+        lastH = h;
+        lastW = w;
+        window.bar.resize(w, h + 20);
+    });
 }
 
 /* ---------- tiny markdown: **bold**, `code`, - lists, paragraphs ---------- */
@@ -455,13 +466,19 @@ function finishAnswer(m, node, r) {
     persist();
 }
 
+let drawTimer = null;
 window.bar.onToken(piece => {
     if (!live) return;
     live.m.text += piece;
     live.note.textContent = "";
-    renderMarkdown(live.textBox, live.m.text);
-    scrollChat();
-    fit();
+    if (drawTimer) return;
+    drawTimer = setTimeout(() => {
+        drawTimer = null;
+        if (!live) return;
+        renderMarkdown(live.textBox, live.m.text);
+        scrollChat();
+        fit();
+    }, 120);
 });
 window.bar.onNote(t => { if (live) { live.stage = t; if (!live.m.text) live.note.textContent = t; } });
 window.bar.onSources(list => {

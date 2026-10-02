@@ -10,7 +10,15 @@ const feedback = require("./feedback");
 app.setAppUserModelId("com.trickortree.treelens");
 
 // A stray error should be logged, not shown as a crash dialog.
-process.on("uncaughtException", err => console.error("UNCAUGHT:", err));
+process.on("uncaughtException", err => {
+    console.error("UNCAUGHT:", err);
+    log(`uncaught: ${err && err.stack || err}`);
+});
+
+// Everything unusual goes to tree-lens.log in the app's data folder (%APPDATA%\\tree-lens), so a hang or crash can be diagnosed.
+function log(message) {
+    try { fs.appendFileSync(path.join(app.getPath("userData"), "tree-lens.log"), `${new Date().toISOString()} ${message}\n`); } catch { /* best effort */ }
+}
 
 if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -108,7 +116,17 @@ function createBar() {
         }
     });
     bar.loadFile("bar.html");
-    bar.webContents.on("render-process-gone", () => { if (barAlive()) bar.reload(); });
+    bar.webContents.on("render-process-gone", (_e, details) => {
+        log(`bar page process gone: ${details.reason}`);
+        if (barAlive()) bar.reload();
+    });
+    // If the page stops responding for 10 seconds, restart it instead of leaving a frozen window.
+    let hangTimer = null;
+    bar.on("unresponsive", () => {
+        log("bar not responding");
+        hangTimer = setTimeout(() => { if (barAlive()) bar.webContents.forcefullyCrashRenderer(); }, 10_000);
+    });
+    bar.on("responsive", () => { log("bar responding again"); clearTimeout(hangTimer); });
     bar.on("blur", () => { if (!holdBar && !asking && !settings.keepOnTop) hideBar(); });
     bar.on("close", e => {
         // The X in the corner hides the bar; Quit lives in the tray and the menu.
@@ -415,17 +433,23 @@ function warmModel() {
 }
 
 // Downloads every model in the list (the one in use first, the rest quietly in the background).
+// It waits until the bar is closed and no answer is running, so it never competes with a question.
 let otherModelsStarted = false;
-async function pullOtherModels() {
+function pullOtherModels() {
     if (otherModelsStarted) return;
     otherModelsStarted = true;
-    try {
-        for (const m of ai.MODELS) {
-            if (m.id !== settings.model && (await ai.status(m.id)) === "no-model") await ai.pullModel(m.id, () => {});
+    const wait = setInterval(async () => {
+        if (asking || barShown()) return;
+        clearInterval(wait);
+        try {
+            for (const m of ai.MODELS) {
+                if (m.id !== settings.model && (await ai.status(m.id)) === "no-model") await ai.pullModel(m.id, () => {});
+            }
+        } catch (err) {
+            log(`background model download failed: ${err.message || err}`);
+            otherModelsStarted = false; // try again next time
         }
-    } catch {
-        otherModelsStarted = false; // try again next time
-    }
+    }, 30_000);
 }
 
 /* Setup: installs Ollama and the model on its own. State lives here, so closing the bar or

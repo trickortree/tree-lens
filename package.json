@@ -1,6 +1,6 @@
 {
   "name": "tree-lens",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Tree Lens",
   "main": "main.js",
   "scripts": {
