@@ -402,6 +402,20 @@ function warmModel() {
     ai.warm(settings.model);
 }
 
+// Downloads every model in the list (the one in use first, the rest quietly in the background).
+let otherModelsStarted = false;
+async function pullOtherModels() {
+    if (otherModelsStarted) return;
+    otherModelsStarted = true;
+    try {
+        for (const m of ai.MODELS) {
+            if (m.id !== settings.model && (await ai.status(m.id)) === "no-model") await ai.pullModel(m.id, () => {});
+        }
+    } catch {
+        otherModelsStarted = false; // try again next time
+    }
+}
+
 /* Setup: installs Ollama and the model on its own. State lives here, so closing the bar or
    starting a new chat never loses track of it. */
 function pushJob() {
@@ -421,6 +435,7 @@ async function runSetup(needs) {
         }
         if ((await ai.status(settings.model)) === "no-model") await ai.pullModel(settings.model, progress);
         job = { running: false, done: true };
+        pullOtherModels();
     } catch (err) {
         job = { running: false, error: String(err.message || err), step: job.step };
     }
@@ -445,6 +460,7 @@ ipcMain.handle("ai:ask", async (_e, { text, images, web, canned }) => {
     const state = await ai.status(model, text => send("ai:note", text));
     if (state === "slow") return { ok: false, error: "Ollama is still starting up. Give it a minute and ask again." };
     if (state !== "ready") return { ok: false, setup: state };
+    pullOtherModels();
 
     const controller = new AbortController();
     asking = controller;
