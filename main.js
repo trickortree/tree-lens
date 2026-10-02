@@ -137,6 +137,7 @@ function showBar(fresh = true) {
     if (fresh) send("bar:shown");
     refreshAppIndex();
     warmModel();
+    maybeCheckUpdate();
 }
 
 function toggleBar() {
@@ -508,6 +509,15 @@ function installUpdate() {
     autoUpdater.quitAndInstall(true, true); // silent (no installer wizard) and relaunch
 }
 
+let lastUpdateCheck = 0;
+// Looks for a new version whenever the bar is opened (at most every 10 minutes), so the
+// "Restart now" strip shows up soon after a release instead of waiting for the 6-hour timer.
+function maybeCheckUpdate() {
+    if (!app.isPackaged || Date.now() - lastUpdateCheck < 10 * 60_000) return;
+    lastUpdateCheck = Date.now();
+    autoUpdater.checkForUpdates().catch(() => {});
+}
+
 function setupAutoUpdater() {
     if (!app.isPackaged) return;
     autoUpdater.autoDownload = true;
@@ -521,6 +531,7 @@ function setupAutoUpdater() {
         if (!barShown()) setTimeout(installUpdate, 3000);
     });
     ipcMain.on("update:restart", installUpdate);
+    lastUpdateCheck = Date.now();
     autoUpdater.checkForUpdates().catch(err => console.error(err));
     setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 }
