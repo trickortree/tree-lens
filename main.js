@@ -31,7 +31,7 @@ let HOTKEY = "(none)";
 const BAR_WIDTH = 640;
 const SIDEBAR_WIDTH = 230;
 const BAR_MIN_HEIGHT = 190;
-const IMAGE_MAX_EDGE = 768;
+const IMAGE_MAX_EDGE = 640; // smaller images are read noticeably faster, even on the CPU
 
 let bar = null;
 let overlay = null;     // pre-loaded, hidden screen-selection window (so Lens opens instantly)
@@ -505,7 +505,8 @@ ipcMain.handle("ai:ask", async (_e, { text, images, web, canned }) => {
         const pics = (images || []).map(d => String(d).replace(/^data:image\/\w+;base64,/, ""));
         let content = text;
         let sources = [];
-        if (web && !canned && ai.shouldSearch(text)) {
+        // A question about an attached image is about the image, so it is never sent to a web search.
+        if (web && !canned && !pics.length && ai.shouldSearch(text)) {
             send("ai:note", "Searching the web...");
             try {
                 const results = await ai.webSearch(text);
@@ -520,7 +521,7 @@ ipcMain.handle("ai:ask", async (_e, { text, images, web, canned }) => {
                 send("ai:note", "Couldn't reach the web, answering without it...");
             }
         }
-        send("ai:note", "Thinking...");
+        send("ai:note", pics.length ? "Reading the image..." : "Thinking...");
         // Older images are dropped from the model's memory: they make every later answer slower.
         const past = history.slice(-8).map(m => ({ role: m.role, content: m.content }));
         const userMsg = { role: "user", content, ...(pics.length ? { images: pics } : {}) };
